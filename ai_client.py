@@ -8,7 +8,7 @@ import logging
 import re
 from typing import Dict, Any, Optional
 from openai import OpenAI
-from ..config import settings
+from .config import settings
 
 logger = logging.getLogger("accessibility_insights.ai_client")
 logging.basicConfig(level=logging.INFO)
@@ -538,3 +538,4 @@ Tone: succinct, developer-focused, and actionable.
     except Exception as e:
         logger.exception("V4 OpenAI request failed — returning mock")
         return {"source": "mock", "markdown": f"# Error generating V4 report: {e}\n\n(Mocked content would appear here)"}
+
