@@ -2,14 +2,15 @@
 from datetime import datetime
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse,StreamingResponse
+from io import BytesIO
 from pydantic import ValidationError
 
 from save_markdown import save_markdown_report
 from schemas import UserStoryIn, ReportOut, A11yDeepReportOut, DetectedComponent,A11yV3JSONOut
 from parser import extract_components
 from ai_client import analyze_with_ai, analyze_with_ai_v3, analyze_with_ai_v3json, analyze_with_ai_v4
-from report_generator import build_report, build_deep_report
+from report_generator import build_report, build_deep_report,generate_markdown_report
 from db import save_report_to_db, save_v3json_to_db
 from config import settings
 import logging
@@ -238,13 +239,19 @@ async def analyze_v3json(user_story: UserStoryIn):
 
 @app.post("/v4/analyze")
 async def analyze_v4(user_story: UserStoryIn):
-    """Generate V4 Markdown report, save as .md and store metadata in MongoDB."""
+    """
+    Generate V4 Markdown report, save locally, store metadata in MongoDB,
+    and return a downloadable Markdown file.
+    """
     try:
+        # Step 1: Generate using AI
         ai_result = analyze_with_ai_v4(user_story.dict())
         raw_md = ai_result.get("markdown")
+
         if not raw_md:
             raise HTTPException(status_code=500, detail="AI response missing markdown content for V4.")
 
+        # Step 2: Prepare report data
         report = {
             "story_id": ai_result.get("story_id") or getattr(user_story, "story_id", None),
             "title": ai_result.get("title") or user_story.title,
@@ -253,18 +260,29 @@ async def analyze_v4(user_story: UserStoryIn):
             "source": ai_result.get("source", "openai"),
         }
 
+        # Step 3: Save locally
         report["file_path"] = save_markdown_report(report)
+
+        # Step 4: Save metadata in MongoDB
         mongo_id = save_report_to_db(report)
 
-        return {
-            "message": "V4 Accessibility report generated, saved, and stored.",
-            "mongo_id": mongo_id,
-            "file_path": report["file_path"],
-            "title": report["title"],
-            "story_id": report["story_id"],
-            "created_at": report["created_at"],
-            "source": report["source"],
+        # Step 5: Create markdown stream for download
+        markdown_bytes = BytesIO(raw_md.encode("utf-8"))
+        filename = f"{report['title'].replace(' ', '_')}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.md"
+
+        # Step 6: Return streaming markdown as attachment
+        headers = {
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "x-mongo-id": str(mongo_id),
+            "x-file-path": report["file_path"],
+            "x-story-id": str(report["story_id"]),
         }
+
+        return StreamingResponse(
+            markdown_bytes,
+            media_type="text/markdown",
+            headers=headers
+        )
 
     except HTTPException:
         raise
