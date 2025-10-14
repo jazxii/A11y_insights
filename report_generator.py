@@ -1,5 +1,5 @@
 from typing import List, Dict, Any, Optional
-from .schemas import (
+from schemas import (
     A11yDeepReportOut,
     ReportOut,
     DetectedComponent,
@@ -295,4 +295,5 @@ def build_report(story_id: str | None, title: str, description: str,
         severity=ai_json.get('overall_severity', 'medium'),
         created_at=datetime.utcnow().isoformat() + 'Z'
     )
+
 
