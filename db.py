@@ -57,7 +57,7 @@ def save_report_to_db(report_data: dict) -> str:
     Saves a full accessibility report to MongoDB.
     Returns the inserted ID (or error message if failed).
     """
-    if not collection:
+    if collection is None:
         logger.warning("⚠️ MongoDB connection not available. Skipping database save.")
         return "DB not connected"
 
@@ -75,7 +75,7 @@ def save_v3json_to_db(v3json: Dict[str, Any]) -> str:
     Saves a V3JSON accessibility report document to MongoDB.
     Ensures created_at is present. Returns inserted_id or error string.
     """
-    if not collection:
+    if collection is None:
         logger.warning("⚠️ MongoDB connection not available. Skipping V3JSON save.")
         return "DB not connected"
 
@@ -96,4 +96,5 @@ def save_v3json_to_db(v3json: Dict[str, Any]) -> str:
         return str(result.inserted_id)
     except Exception as e:
         logger.error(f"❌ Error saving V3JSON to MongoDB: {e}")
+
         return "Insert failed"
