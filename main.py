@@ -10,7 +10,7 @@ from save_markdown import save_markdown_report
 from schemas import UserStoryIn, ReportOut, A11yDeepReportOut, DetectedComponent,A11yV3JSONOut
 from parser import extract_components
 from ai_client import analyze_with_ai, analyze_with_ai_v3, analyze_with_ai_v3json, analyze_with_ai_v4
-from report_generator import build_report, build_deep_report,generate_markdown_report
+from report_generator import build_report, build_deep_report
 from db import save_report_to_db, save_v3json_to_db
 from config import settings
 import logging
