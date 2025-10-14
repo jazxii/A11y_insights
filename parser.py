@@ -1,6 +1,6 @@
 import re
 from typing import List
-from .schemas import DetectedComponent
+from schemas import DetectedComponent
 # A small rule-based parser to extract likely components from user story text.
 COMPONENT_KEYWORDS = {
  'button': [r'button', r'click', r'tap'],
@@ -27,4 +27,5 @@ def extract_components(text: str) -> List[DetectedComponent]:
  if not components:
      components.append(DetectedComponent(name='screen', type='screen', hint='No specific components detected - treat as full screen flow'))
  return components
+
 
