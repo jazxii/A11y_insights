@@ -29,6 +29,15 @@ app.add_middleware(
 logger = logging.getLogger("accessibility_insights")
 logging.basicConfig(level=logging.INFO)
 
+@app.get("/")
+async def root():
+    return {"message": "A11y Insights API is running"}
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=10000)
+
+
+
 @app.post("/v1/analyze", response_model=ReportOut)
 async def analyze_v1(user_story: UserStoryIn):
     """
