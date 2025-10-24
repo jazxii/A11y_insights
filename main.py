@@ -18,6 +18,7 @@ import traceback
 from pydantic import BaseModel
 from typing import List
 import io
+import os
 
 app = FastAPI(title='Accessibility Early Insights API')
 
