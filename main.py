@@ -312,12 +312,16 @@ async def document_defects(defect_input: DefectInput):
         template_type = "Web" if is_web else "UMA"
 
         # Generate markdown content using OpenAI
-        markdown_output = await analyze_defects_v4(
+        result = await analyze_defects_v4(
             defects=defect_input.defects,
             platform=defect_input.platform,
             page_or_screen=defect_input.page_or_screen,
             template_type=template_type
         )
+
+        # extract markdown text from dict
+        markdown_output = result.get("markdown") if isinstance(result, dict) else str(result)
+
 
         # Save markdown locally (optional)
         filename = f"{template_type}_Defects_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
