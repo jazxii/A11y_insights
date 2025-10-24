@@ -538,5 +538,93 @@ Tone: succinct, developer-focused, and actionable.
     except Exception as e:
         logger.exception("V4 OpenAI request failed — returning mock")
         return {"source": "mock", "markdown": f"# Error generating V4 report: {e}\n\n(Mocked content would appear here)"}
+      
+async def analyze_defects_v4(defects, platform, page_or_screen, template_type):
+    """
+    Generate structured markdown documentation for accessibility defects.
+    Uses different templates for Web and UMA (Mobile).
+    """
+
+    web_template_example = """
+**Web Template Example:**
+Title: A11y_4.1.2 Name, Role, Value – Web - End to End Regression – Recipes Page – Search Bar Not Announced Correctly
+Priority: Medium
+Platforms: Windows 11/Chrome, iOS/Safari, Android/Chrome
+Screen Reader: NVDA, VoiceOver, TalkBack
+Steps To Reproduce:
+1. Login in to www.safeway.com
+2. Navigate to https://www.safeway.com/recipes
+Actual Result:
+Add quantity buttons are not descriptive.
+Expected Result:
+Add quantity button name should be descriptive, e.g., “Add 1 unit of XYZ product to cart button”.
+PWD Impact:
+Visually challenged users may not understand button purpose.
+Suggested Fix:
+Add proper aria-label for clarity.
+WCAG Reference:
+https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html
+"""
+
+    uma_template_example = """
+**UMA/Mobile Template Example:**
+Title: A11y_4.1.2 Name, Role, Value – Android – Member Tab – Rewards page deals announced incorrectly by TalkBack
+Priority: Medium
+OS/Browser: Android 15 / Ver.2025.23.0 (PROD)
+Screen Reader: TalkBack
+Steps to Reproduce:
+1. Launch the app and log in.
+2. Navigate to the Member tab → Rewards section.
+3. Scroll to “Boost Your Points” section.
+Actual Result:
+TalkBack reads deals as “Transactions:: 0 of 0”.
+Expected Result:
+TalkBack should announce each deal as “[Deal Title], Clipped, Button”.
+User Impact:
+Screen reader users cannot perceive purpose of deals.
+Suggested Fix:
+Ensure name, role, and value are properly exposed.
+WCAG Reference:
+https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html
+"""
+
+    example_template = web_template_example if template_type == "Web" else uma_template_example
+
+    prompt = f"""
+You are an Accessibility QA documentation expert. 
+Your task is to write well-structured accessibility defect markdown reports following strict templates.
+
+---
+Platform: {platform}
+Page/Screen: {page_or_screen}
+Type: {template_type}
+Defect Notes List:
+{defects}
+---
+
+### Follow These Rules:
+1. Use the exact structure shown in the below example template for {template_type}.
+2. Generate a **Title** starting with “A11y_<WCAG> – <Platform> – <Page/Screen> – <Issue Summary>”.
+3. The **Priority** should be accurately inferred based on impact severity.
+4. “Steps to Reproduce” must begin with:
+   - For Web: “1. Login in to www.safeway.com; 2. Navigate to {page_or_screen}”
+   - For UMA/Mobile: “1. Launch the app and log in; 2. Navigate to {page_or_screen}”
+5. Include clear **Actual Result**, **Expected Result**, **User Impact**, **Suggested Fix**, and **WCAG 2.2 Reference (URL)**.
+6. Each defect should be formatted under its own section with markdown headings (## Defect 1, ## Defect 2, etc.).
+7. Ensure the markdown is human-readable, developer-friendly, and strictly formatted.
+
+Here’s the reference template to follow:
+{example_template}
+
+Now generate the structured Markdown documentation for all provided defects.
+"""
+
+    response = await client.chat.completions.create(
+        model=settings.OPENAI_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+    )
+
+    return response.choices[0].message.content
+
 
 
