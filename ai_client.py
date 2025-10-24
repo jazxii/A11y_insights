@@ -600,7 +600,7 @@ Platform: {platform}
 Page/Screen: {page_or_screen}
 Template Type: {template_type}
 Defect Notes Provided by User:
-{raw_defects}
+{defects}
 
 ### Rules:
 1. Follow this structure strictly:
@@ -673,6 +673,7 @@ Defect Notes Provided by User:
             "source": "mock",
             "markdown": f"# Error generating defect report: {e}\n\n(Mocked markdown output would appear here)",
         }
+
 
 
 
