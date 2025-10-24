@@ -541,8 +541,8 @@ Tone: succinct, developer-focused, and actionable.
       
 async def analyze_defects_v4(defects, platform, page_or_screen, template_type):
     """
-    Generate structured markdown documentation for accessibility defects.
-    Uses different templates for Web and UMA (Mobile).
+    Generate structured markdown documentation for accessibility defects (UMA or Web).
+    Includes OpenAI fallback + mock markdown.
     """
 
     web_template_example = """
@@ -590,41 +590,90 @@ https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html
 
     example_template = web_template_example if template_type == "Web" else uma_template_example
 
-    prompt = f"""
-You are an Accessibility QA documentation expert. 
-Your task is to write well-structured accessibility defect markdown reports following strict templates.
+    # --- Construct User Prompt ---
+    user_prompt = f"""
+You are an expert Accessibility QA documenter.
 
----
+Your task: Generate a structured Markdown report for the following accessibility defects.
+
 Platform: {platform}
 Page/Screen: {page_or_screen}
-Type: {template_type}
-Defect Notes List:
-{defects}
----
+Template Type: {template_type}
+Defect Notes Provided by User:
+{raw_defects}
 
-### Follow These Rules:
-1. Use the exact structure shown in the below example template for {template_type}.
-2. Generate a **Title** starting with “A11y_<WCAG> – <Platform> – <Page/Screen> – <Issue Summary>”.
-3. The **Priority** should be accurately inferred based on impact severity.
-4. “Steps to Reproduce” must begin with:
-   - For Web: “1. Login in to www.safeway.com; 2. Navigate to {page_or_screen}”
-   - For UMA/Mobile: “1. Launch the app and log in; 2. Navigate to {page_or_screen}”
-5. Include clear **Actual Result**, **Expected Result**, **User Impact**, **Suggested Fix**, and **WCAG 2.2 Reference (URL)**.
-6. Each defect should be formatted under its own section with markdown headings (## Defect 1, ## Defect 2, etc.).
-7. Ensure the markdown is human-readable, developer-friendly, and strictly formatted.
-
-Here’s the reference template to follow:
+### Rules:
+1. Follow this structure strictly:
 {example_template}
 
-Now generate the structured Markdown documentation for all provided defects.
+2. Create a **Title** as: “A11y_<WCAG> – <Platform> – <Page/Screen> – <Issue Summary>”.
+3. “Steps to Reproduce” must begin with:
+   - For Web: “1. Login in to www.safeway.com; 2. Navigate to {page_or_screen}”
+   - For UMA/Mobile: “1. Launch the app and log in; 2. Navigate to {page_or_screen}”
+4. Use detailed and realistic examples.
+5. The **Priority** should be accurately inferred based on impact severity.
+6. Include accurate WCAG 2.2 reference URLs.
+7. Return final content as Markdown, grouped as:
+   ## Defect 1
+   ## Defect 2
+   ... and so on.
+8. Keep it clear, professional, and directly usable for JIRA or test reports.
 """
 
-    response = await client.chat.completions.create(
-        model=settings.OPENAI_MODEL,
-        messages=[{"role": "user", "content": prompt}],
+    system_prompt = (
+        "You are a senior Accessibility QA specialist. Your output must be a clean, "
+        "developer-friendly Markdown report documenting accessibility defects "
+        "according to WCAG 2.2 and platform standards (Web or UMA)."
     )
 
-    return response.choices[0].message.content
+    # --- OpenAI Client & Fallback ---
+    client = _get_openai_client()
+    if client is None:
+        mock = (
+            "## Accessibility Defects Report (Mocked)\n\n"
+            "- **Title:** A11y_4.1.2 Name, Role, Value – Web – Sample Defect\n"
+            "- **Priority:** Medium\n"
+            "- **Steps:** 1. Login to www.safeway.com; 2. Navigate to sample page.\n"
+            "- **Actual:** Element lacks proper accessible name.\n"
+            "- **Expected:** Name, role, and value must be programmatically exposed.\n"
+            "- **Fix:** Add aria-label or role property.\n"
+            "- **WCAG:** https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html\n"
+        )
+        return {"source": "mock", "markdown": mock}
+
+    try:
+        resp = client.chat.completions.create(
+            model=settings.OPENAI_MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.0,
+            max_tokens=2500,
+        )
+
+        text = None
+        try:
+            text = (
+                resp["choices"][0]["message"]["content"]
+                if isinstance(resp, dict)
+                else resp.choices[0].message.content
+            )
+        except Exception:
+            text = getattr(resp.choices[0].message, "content", None) if getattr(resp, "choices", None) else None
+
+        if not text:
+            raise Exception("Empty response from OpenAI")
+
+        return {"source": "openai", "markdown": text}
+
+    except Exception as e:
+        logger.exception("V4 Defect Documentation request failed — returning mock")
+        return {
+            "source": "mock",
+            "markdown": f"# Error generating defect report: {e}\n\n(Mocked markdown output would appear here)",
+        }
+
 
 
 
