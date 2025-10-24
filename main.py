@@ -320,15 +320,22 @@ async def document_defects(defect_input: DefectInput):
         )
 
         # extract markdown text from dict
+        
         markdown_output = result.get("markdown") if isinstance(result, dict) else str(result)
 
+        # 🔹 Prepare structured data for save_markdown_report
+        response_data = {
+            "title": f"{template_type}_Defects_{defect_input.page_or_screen}",
+            "raw_markdown": markdown_output,
+            "created_at": datetime.utcnow().isoformat()
+        }
 
-        # Save markdown locally (optional)
-        filename = f"{template_type}_Defects_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
-        file_path = await save_markdown_report(filename, markdown_output)
+        # 🔹 Format and save the markdown file properly
+        file_path = save_markdown_report(response_data, output_dir="output")
 
-        # Create stream for download
+        # 🔹 Stream the same markdown content back for download
         file_stream = io.BytesIO(markdown_output.encode("utf-8"))
+        filename = os.path.basename(file_path)
 
         return StreamingResponse(
             file_stream,
