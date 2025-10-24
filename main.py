@@ -320,7 +320,7 @@ async def document_defects(defect_input: DefectInput):
         )
 
         # Save markdown locally (optional)
-        filename = f"{template_type}_Defects_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
+        filename = f"{template_type}_Defects_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
         file_path = await save_markdown_report(filename, markdown_output)
 
         # Create stream for download
