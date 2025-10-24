@@ -291,6 +291,48 @@ async def analyze_v4(user_story: UserStoryIn):
         raise HTTPException(status_code=500, detail=f"Failed to generate and save V4 markdown report: {e}")
 
 
+
+class DefectInput(BaseModel):
+    platform: str
+    page_or_screen: str
+    defects: List[str]
+
+@app.post("/v4/document-defects")
+async def document_defects(defect_input: DefectInput):
+    """
+    Generate accessibility defect documentation in Markdown for UMA or Web
+    and return as downloadable stream.
+    """
+    try:
+        platform = defect_input.platform.lower()
+        is_web = any(p in platform for p in ["windows", "chrome", "safari"])
+        template_type = "Web" if is_web else "UMA"
+
+        # Generate markdown content using OpenAI
+        markdown_output = await analyze_defects_v4(
+            defects=defect_input.defects,
+            platform=defect_input.platform,
+            page_or_screen=defect_input.page_or_screen,
+            template_type=template_type
+        )
+
+        # Save markdown locally (optional)
+        filename = f"{template_type}_Defects_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
+        file_path = await save_markdown_report(filename, markdown_output)
+
+        # Create stream for download
+        file_stream = io.BytesIO(markdown_output.encode("utf-8"))
+
+        return StreamingResponse(
+            file_stream,
+            media_type="text/markdown",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to document defects: {str(e)}")
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok", "openai_model": settings.OPENAI_MODEL}
