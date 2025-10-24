@@ -298,7 +298,7 @@ async def analyze_v4(user_story: UserStoryIn):
 class DefectInput(BaseModel):
     platform: str
     page_or_screen: str
-    defects: List[str]
+    defects: str
 
 @app.post("/v4/document-defects")
 async def document_defects(defect_input: DefectInput):
