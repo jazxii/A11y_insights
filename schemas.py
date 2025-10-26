@@ -18,20 +18,23 @@ class V5AnalyzeRequest(BaseModel):
 class ReportSchema(BaseModel):
     """
     MongoDB schema for a stored accessibility report.
+    ticket_id is used as _id in MongoDB, but represented here as `id`.
     """
-    _id: str = Field(..., alias="_id")  # ticket_id acts as primary key
+    id: str = Field(..., alias="_id")  # ✅ use alias to map Mongo _id → id
+    ticket_id: str
     summary: str
     description: str
-    platform: Optional[str]
-    project_name: Optional[str]
+    platform: Optional[str] = None
+    project_name: Optional[str] = None
     ai_model: str
     markdown_report: str
     json_report: Any
+    source: Optional[str] = "openai"
     created_at: datetime
     updated_at: Optional[datetime] = None
 
     class Config:
-        allow_population_by_field_name = True
+        populate_by_name = True
         json_encoders = {datetime: lambda v: v.isoformat()}
 
 class UserStoryIn(BaseModel):
