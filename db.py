@@ -24,6 +24,8 @@ client = None
 db = None
 collection = None
 
+reports_collection = db["ai_reports"]
+
 # Attempt to connect to MongoDB Atlas securely
 try:
     if not MONGO_URI:
@@ -50,6 +52,22 @@ except Exception as e:
     client = None
     db = None
     collection = None
+
+def save_report(report_data: dict):
+    """
+    Saves or updates an accessibility report using ticket_id as the _id.
+    If the ticket_id already exists, it updates the document instead of inserting a new one.
+    """
+    report_data["_id"] = report_data["ticket_id"]
+    report_data["updated_at"] = datetime.utcnow()
+
+    result = reports_collection.update_one(
+        {"_id": report_data["_id"]},
+        {"$set": report_data, "$setOnInsert": {"created_at": datetime.utcnow()}},
+        upsert=True
+    )
+
+    return report_data["_id"]
 
 
 def save_report_to_db(report_data: dict) -> str:
@@ -98,3 +116,7 @@ def save_v3json_to_db(v3json: Dict[str, Any]) -> str:
         logger.error(f"❌ Error saving V3JSON to MongoDB: {e}")
 
         return "Insert failed"
+
+def get_report(ticket_id: str):
+    return reports_collection.find_one({"_id": ticket_id})
+

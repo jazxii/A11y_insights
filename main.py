@@ -8,10 +8,10 @@ from pydantic import ValidationError
 
 from save_markdown import save_markdown_report
 from schemas import UserStoryIn, ReportOut, A11yDeepReportOut, DetectedComponent,A11yV3JSONOut
-from parser import extract_components
-from ai_client import analyze_with_ai, analyze_with_ai_v3, analyze_with_ai_v3json, analyze_with_ai_v4, analyze_defects_v4
+from parser import extract_components, parse_to_markdown_and_json
+from ai_client import analyze_with_ai, analyze_with_ai_v3, analyze_with_ai_v3json, analyze_with_ai_v4, analyze_defects_v4, generate_a11y_report_v5
 from report_generator import build_report, build_deep_report
-from db import save_report_to_db, save_v3json_to_db
+from db import save_report_to_db, save_v3json_to_db, save_report
 from config import settings
 import logging
 import traceback
@@ -19,6 +19,7 @@ from pydantic import BaseModel
 from typing import List
 import io
 import os
+
 
 app = FastAPI(title='Accessibility Early Insights API')
 
@@ -347,6 +348,58 @@ async def document_defects(defect_input: DefectInput):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to document defects: {str(e)}")
 
+
+router = APIRouter(prefix="/v5", tags=["V5 Analyze"])
+
+
+@router.post("/analyze")
+async def analyze_v5(request: V5AnalyzeRequest):
+    """
+    Analyzes accessibility defect data and stores report in MongoDB.
+    Uses ticket_id as primary key (_id).
+    """
+    try:
+        # 1️⃣ Generate AI output
+        ai_output = await generate_a11y_report_v5(
+            summary=request.summary,
+            description=request.description,
+            platform=request.platform,
+            ai_model=request.ai_model
+        )
+
+        # 2️⃣ Parse AI output -> Markdown + JSON
+        markdown_report, json_report = parse_to_markdown_and_json(ai_output)
+
+        # 3️⃣ Prepare MongoDB document
+        report_data = {
+            "ticket_id": request.ticket_id,
+            "summary": request.summary,
+            "description": request.description,
+            "platform": request.platform,
+            "project_name": request.project_name,
+            "ai_model": request.ai_model,
+            "markdown_report": markdown_report,
+            "json_report": json_report
+        }
+
+        # 4️⃣ Save or update MongoDB record
+        report_id = save_report(report_data)
+
+        # 5️⃣ Return structured response
+        return {
+            "status": "success",
+            "ticket_id": report_id,
+            "markdown_report": markdown_report,
+            "json_report": json_report,
+            "saved": True
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to analyze ticket: {str(e)}")
+
+
+# Register router
+app.include_router(router)
 
 @app.get("/health")
 async def health():

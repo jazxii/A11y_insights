@@ -9,6 +9,7 @@ import re
 from typing import Dict, Any, Optional
 from openai import OpenAI
 from config import settings
+from db import save_report
 
 logger = logging.getLogger("accessibility_insights.ai_client")
 logging.basicConfig(level=logging.INFO)
@@ -674,6 +675,166 @@ Defect Notes Provided by User:
             "markdown": f"# Error generating defect report: {e}\n\n(Mocked markdown output would appear here)",
         }
 
+async def generate_a11y_report_v5(ticket_id: str, summary: str, description: str, platform: str = "iOS", ai_model: str = "gpt-4o"):
+    """
+    Accessibility Insights V5 — Generates both structured JSON and Markdown report.
+    Returns: {"source": "openai"|"mock", "markdown": str, "json": dict}
+    """
+
+    system_prompt = """
+You are an Accessibility Implementation Advisor specialized in WCAG 2.2, ARIA, and platform accessibility APIs (Web/iOS/Android).
+
+Task:
+Analyze the given Accessibility defect or product story and produce BOTH:
+1. A **developer-ready Markdown report** (same structure as V4)
+2. A **structured JSON summary** for data-driven storage
+
+---
+
+### REQUIRED MARKDOWN STRUCTURE
+
+## Accessibility Developer Checklist
+- [ ] 5–8 developer-focused, testable accessibility actions
+- Each checklist item must include:
+  - **Intent**
+  - **Non-Accessible Example:** (code)
+  - **Accessible Example:** (code)
+  - **Implementation Tips:** Web / iOS / Android
+  - **WCAG Reference:** SC number — name — link
+
+---
+
+### Accessibility Acceptance Criteria (for JIRA)
+- 6–8 concise acceptance criteria describing expected accessible behaviors.
+
+Rules:
+- Always use real WCAG 2.2 SC numbers and URLs.
+- Keep tone short, developer-focused, and actionable.
+- Respond ONLY with Markdown and JSON as specified.
+
+---
+
+### REQUIRED JSON STRUCTURE
+{
+  "developer_checklist": [
+    {
+      "item": "...",
+      "intent": "...",
+      "non_accessible_example": "...",
+      "accessible_example": "...",
+      "implementation_tips": {
+        "web": "...",
+        "ios": "...",
+        "android": "..."
+      },
+      "wcag_reference": {
+        "id": "4.1.2",
+        "name": "Name, Role, Value",
+        "url": "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html"
+      }
+    }
+  ],
+  "acceptance_criteria": [
+    "Component is reachable via keyboard and announces correct label.",
+    "Visual state updates are perceivable to assistive tech."
+  ],
+  "wcag_references": [
+    {"id": "1.3.1", "name": "Info and Relationships", "url": "..."}
+  ]
+}
+
+Respond ONLY with Markdown first, then a JSON block separated by a clear delimiter:
+`---JSON-START---` and `---JSON-END---`
+    """
+
+    user_prompt = f"""
+Ticket ID: {ticket_id}
+Summary: {summary}
+Description: {description}
+Platform: {platform}
+
+Generate the V5 Accessibility Report as described.
+"""
+
+    client = _get_openai_client()
+    if client is None:
+        logger.warning("OpenAI client unavailable — returning mock data")
+
+        mock_markdown = (
+            "## Accessibility Developer Checklist\n"
+            "- [ ] Ensure all buttons have accessible names.\n"
+            " - **Intent:** Screen readers require programmatic names.\n"
+            " - **Non-Accessible Example:** `<button></button>`\n"
+            " - **Accessible Example:** `<button aria-label='Save'>💾</button>`\n"
+            " - **Implementation Tips:** Web: aria-label; iOS: accessibilityLabel; Android: contentDescription\n"
+            " - **WCAG Reference:** 4.1.2 — Name, Role, Value\n\n"
+            "---\n"
+            "### Accessibility Acceptance Criteria (for JIRA)\n"
+            "- Screen reader announces control name and role.\n"
+            "- Keyboard users can reach and activate all buttons.\n"
+        )
+
+        mock_json = {
+            "developer_checklist": [
+                {
+                    "item": "Ensure buttons have accessible names",
+                    "intent": "Screen readers require programmatic names.",
+                    "wcag_reference": {
+                        "id": "4.1.2",
+                        "name": "Name, Role, Value",
+                        "url": "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html"
+                    }
+                }
+            ],
+            "acceptance_criteria": [
+                "Screen reader announces name and role correctly.",
+                "Keyboard users can activate controls."
+            ],
+            "wcag_references": [
+                {"id": "4.1.2", "name": "Name, Role, Value", "url": "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html"}
+            ]
+        }
+
+        return {"source": "mock", "markdown": mock_markdown, "json": mock_json}
+
+    try:
+        resp = client.chat.completions.create(
+            model=ai_model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.0,
+            max_tokens=3500,
+        )
+
+        text = resp.choices[0].message.content.strip()
+
+        if not text:
+            raise Exception("Empty response from OpenAI")
+
+        # Split Markdown and JSON sections
+        markdown_part, json_part = text, None
+        if "---JSON-START---" in text:
+            parts = text.split("---JSON-START---")
+            markdown_part = parts[0].strip()
+            if len(parts) > 1:
+                json_raw = parts[1].split("---JSON-END---")[0].strip()
+                try:
+                    json_part = json.loads(json_raw)
+                except json.JSONDecodeError:
+                    logger.warning("Failed to decode JSON section — skipping structured part.")
+                    json_part = {}
+
+        return {"source": "openai", "markdown": markdown_part, "json": json_part or {}}
+
+    except Exception as e:
+        logger.exception("V5 OpenAI request failed — returning mock fallback")
+        return {
+            "source": "mock",
+            "markdown": f"# Error generating V5 report: {e}\n\n(Mocked content follows...)",
+            "json": {}
+        }
 
 
 
