@@ -24,7 +24,6 @@ client = None
 db = None
 collection = None
 
-reports_collection = db["ai_reports"]
 
 # Attempt to connect to MongoDB Atlas securely
 try:
@@ -53,6 +52,8 @@ except Exception as e:
     db = None
     collection = None
 
+
+reports_collection = db["ai_reports"]
 def save_report(report_data: dict):
     """
     Saves or updates an accessibility report using ticket_id as the _id.
