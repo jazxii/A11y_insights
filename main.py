@@ -361,11 +361,13 @@ async def analyze_v5(request: V5AnalyzeRequest):
     try:
         # 1️⃣ Generate AI output
         ai_output = await generate_a11y_report_v5(
+            ticket_id=request.ticket_id,
             summary=request.summary,
             description=request.description,
             platform=request.platform,
             ai_model=request.ai_model
         )
+
 
         # 2️⃣ Parse AI output -> Markdown + JSON
         markdown_report, json_report = parse_to_markdown_and_json(ai_output)
