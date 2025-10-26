@@ -1,13 +1,13 @@
 # main.py (V2)
 from datetime import datetime
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse,StreamingResponse
 from io import BytesIO
 from pydantic import ValidationError
 
 from save_markdown import save_markdown_report
-from schemas import UserStoryIn, ReportOut, A11yDeepReportOut, DetectedComponent,A11yV3JSONOut
+from schemas import UserStoryIn, ReportOut, A11yDeepReportOut, DetectedComponent,A11yV3JSONOut, V5AnalyzeRequest
 from parser import extract_components, parse_to_markdown_and_json
 from ai_client import analyze_with_ai, analyze_with_ai_v3, analyze_with_ai_v3json, analyze_with_ai_v4, analyze_defects_v4, generate_a11y_report_v5
 from report_generator import build_report, build_deep_report
