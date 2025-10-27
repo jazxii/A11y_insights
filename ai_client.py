@@ -694,23 +694,24 @@ Analyze the given Accessibility defect or product story and produce BOTH:
 ### REQUIRED MARKDOWN STRUCTURE
 
 ## Accessibility Developer Checklist
-- [ ] 5–8 developer-focused, testable accessibility actions
+- [ ] 4–14 developer-focused, testable accessibility actions
 - Each checklist item must include:
   - **Intent**
   - **Non-Accessible Example:** (code)
   - **Accessible Example:** (code)
-  - **Implementation Tips:** Web / iOS / Android
+  - **Implementation Tips:** Web
   - **WCAG Reference:** SC number — name — link
 
 ---
 
 ### Accessibility Acceptance Criteria (for JIRA)
-- 6–8 concise acceptance criteria describing expected accessible behaviors.
+- 4–12 concise acceptance criteria describing expected accessible behaviors.
 
 Rules:
 - Always use real WCAG 2.2 SC numbers and URLs.
 - Keep tone short, developer-focused, and actionable.
 - Respond ONLY with Markdown and JSON as specified.
+- Properly analyze the user story to identify relevant WCAG success criteria and situations where Accessibility comes into play with WCAG A and AA Conformance Levels.
 
 ---
 
@@ -724,8 +725,6 @@ Rules:
       "accessible_example": "...",
       "implementation_tips": {
         "web": "...",
-        "ios": "...",
-        "android": "..."
       },
       "wcag_reference": {
         "id": "4.1.2",
