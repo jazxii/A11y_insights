@@ -370,7 +370,9 @@ async def analyze_v5(request: V5AnalyzeRequest):
 
 
         # 2️⃣ Parse AI output -> Markdown + JSON
-        markdown_report, json_report = parse_to_markdown_and_json(ai_output)
+        markdown_report = ai_output.get("markdown", "")
+        json_report = ai_output.get("json", {})
+
 
         # 3️⃣ Prepare MongoDB document
         report_data = {

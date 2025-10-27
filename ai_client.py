@@ -748,13 +748,21 @@ Respond ONLY with Markdown first, then a JSON block separated by a clear delimit
     """
 
     user_prompt = f"""
+Accessibility Analysis Request:
 Ticket ID: {ticket_id}
-Summary: {summary}
-Description: {description}
 Platform: {platform}
 
-Generate the V5 Accessibility Report as described.
+Summary:
+{summary}
+
+Description:
+{description}
+
+Task:
+Generate both a developer-focused Markdown accessibility report and a structured JSON following the required schema.
+Respond exactly as instructed in the system prompt.
 """
+
 
     client = _get_openai_client()
     if client is None:
@@ -809,7 +817,7 @@ Generate the V5 Accessibility Report as described.
         )
 
         text = resp.choices[0].message.content.strip()
-
+        print("DEBUG: AI raw response =", text)
         if not text:
             raise Exception("Empty response from OpenAI")
 
@@ -825,8 +833,12 @@ Generate the V5 Accessibility Report as described.
                 except json.JSONDecodeError:
                     logger.warning("Failed to decode JSON section — skipping structured part.")
                     json_part = {}
+            print("DEBUG: Markdown =", markdown_part[:200])
+            print("DEBUG: JSON =", json_part)
 
         return {"source": "openai", "markdown": markdown_part, "json": json_part or {}}
+
+    
 
     except Exception as e:
         logger.exception("V5 OpenAI request failed — returning mock fallback")
