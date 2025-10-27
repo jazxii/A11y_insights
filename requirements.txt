@@ -6,3 +6,5 @@ pymongo
 python-dotenv
 pydantic-settings
 requests
+fpdf
+beautifulsoup4
