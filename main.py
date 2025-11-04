@@ -34,7 +34,10 @@ app = FastAPI(title='Accessibility Early Insights API')
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=['*'],
+    allow_origins=[
+        "http://localhost:5173",  # Vite dev server
+        "http://127.0.0.1:5173",  # alternate localhost access
+    ],
     allow_credentials=True,
     allow_methods=['*'],
     allow_headers=['*'],

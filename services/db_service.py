@@ -103,20 +103,12 @@ def save_report(report_data: Dict[str, Any]) -> str:
 
 
 def update_report(ticket_id: str, update_fields: Dict[str, Any]) -> bool:
-    """
-    Update allowed fields for a report. Returns True if a document was matched.
-    """
-    if not update_fields:
-        return False
+    result = reports_collection.update_one(
+        {"ticket_id": ticket_id},
+        {"$set": update_fields}
+    )
+    return result.modified_count > 0
 
-    update_fields["updated_at"] = datetime.utcnow()
-    try:
-        result: UpdateResult = reports_collection.update_one({"_id": ticket_id}, {"$set": update_fields})
-        logger.debug("update_report: matched=%s modified=%s", result.matched_count, result.modified_count)
-        return result.matched_count > 0
-    except Exception as e:
-        logger.exception("Error updating report %s: %s", ticket_id, e)
-        return False
 
 
 def delete_report(ticket_id: str) -> bool:
