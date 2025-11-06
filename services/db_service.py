@@ -37,6 +37,18 @@ def get_report_by_id(ticket_id: str) -> Optional[Dict[str, Any]]:
         logger.exception("Error fetching report %s: %s", ticket_id, e)
         return None
 
+def get_report_by_ticket_id(ticket_id: str) -> Dict[str, Any]:
+    """
+    Fetch a report document by ticket_id (stored as _id).
+    Returns the raw document (with _id as string) or None.
+    """
+    doc = reports_collection.find_one({"_id": ticket_id})
+    if not doc:
+        return None
+    # convert _id to string for safe JSON serialization
+    doc["_id"] = str(doc["_id"])
+    return doc
+
 
 def list_reports(
     skip: int = 0,
@@ -69,45 +81,63 @@ def list_reports(
         return 0, []
 
 
-def save_report(report_data: Dict[str, Any]) -> str:
+def save_report(report_data: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Upsert a report using report_data["ticket_id"] as the key (stored into _id).
-    Returns the ticket_id (which is used as the primary key).
+    Upsert (insert or update) a report using `ticket_id` as the key.
+    Ensures consistent created_at / updated_at handling.
+    Returns dict: {ticket_id, created(bool), created_at(str), updated_at(str)}.
     """
+
     if "ticket_id" not in report_data:
         raise ValueError("report_data must contain 'ticket_id'")
 
     ticket_id = report_data["ticket_id"]
-    # ensure timestamps
     now = datetime.utcnow()
-    report_data["_id"] = ticket_id
-    report_data["updated_at"] = now
 
-    # Avoid storing duplicate ticket_id key inside the document if you prefer
-    # but keeping ticket_id field is useful for queries; keep it.
+    # Fetch existing document by _id (we store _id = ticket_id)
+    existing = reports_collection.find_one({"_id": ticket_id})
+    created_at = existing.get("created_at", now) if existing else now
+
+    # Always set _id, ensure timestamps exist
+    report_data["_id"] = ticket_id
+    report_data["ticket_id"] = ticket_id
+    report_data["updated_at"] = now
+    report_data["created_at"] = created_at
+
+    # ❌ DO NOT include created_at in $set to avoid conflict with $setOnInsert
+    set_data = {k: v for k, v in report_data.items() if k != "created_at"}
+
     try:
         result: UpdateResult = reports_collection.update_one(
             {"_id": ticket_id},
-            {
-                "$set": report_data,
-                "$setOnInsert": {"created_at": now},
-            },
+            {"$set": set_data, "$setOnInsert": {"created_at": created_at}},
             upsert=True,
         )
-        logger.debug("save_report upsert result: matched=%s modified=%s upserted_id=%s",
-                     result.matched_count, result.modified_count, getattr(result, "upserted_id", None))
-        return ticket_id
+
+        created = result.upserted_id is not None
+
+        logger.debug(
+            "save_report: %s — created=%s matched=%s modified=%s",
+            ticket_id, created, result.matched_count, result.modified_count
+        )
+
+        return {
+            "ticket_id": ticket_id,
+            "created": created,
+            "created_at": created_at.isoformat(),
+            "updated_at": now.isoformat()
+        }
+
     except Exception as e:
         logger.exception("Failed to save report %s: %s", ticket_id, e)
         raise
 
 
 def update_report(ticket_id: str, update_fields: Dict[str, Any]) -> bool:
-    result = reports_collection.update_one(
-        {"ticket_id": ticket_id},
-        {"$set": update_fields}
-    )
-    return result.modified_count > 0
+    """Update an existing report and return success status."""
+    result = reports_collection.update_one({"_id": ticket_id}, {"$set": update_fields})
+    # consider the update successful if a document matched (even if no fields changed)
+    return result.matched_count > 0
 
 
 

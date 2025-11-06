@@ -10,7 +10,7 @@ class V5AnalyzeRequest(BaseModel):
     ticket_id: str
     summary: str
     description: str
-    platform: Optional[str] = "iOS"
+    platform: Optional[str] = "Web"
     project_name: Optional[str] = None
     ai_model: Optional[str] = "gpt-4o"
 
